@@ -7,7 +7,7 @@ from pathlib import Path
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.decomposition import TruncatedSVD
 
-from preprocessor import preprocess
+from src.preprocessor import preprocess
 
 DATA_PATH = Path(__file__).parent.parent / "data" / "data1.jsonl"
 INDEX_PATH = Path(__file__).parent.parent / "data" / "index"
@@ -82,34 +82,29 @@ def build_bm25_stats(texts, vocabulary):
 def build_lsa_vectors(tfidf_matrix) :
     svd = TruncatedSVD(n_components=LSA_COMPONENTS, random_state=42)
     lsa_vectors = svd.fit_transform(tfidf_matrix)  # (n_docs, LSA_COMPONENTS)
-    explained = svd.explained_variance_ratio_.sum()
-    print(f"  LSA: {lsa_vectors.shape}, explains {explained:.1%} of variance")
+    print(f"  LSA: {lsa_vectors.shape}")
     return lsa_vectors, svd
 
-
-# ---------------------------------------------------------------------------
-# Pipeline
-# ---------------------------------------------------------------------------
 
 def run_setup_pipeline():
     nltk.download('stopwords')
     nltk.download('punkt_tab')
     INDEX_PATH.mkdir(parents=True, exist_ok=True)
 
-    print("\n[1/4] Loading documents...")
+    print("\n[1/4] Loading documents")
     texts, doc_meta = load_documents()
 
-    print("\n[2/4] Building TF-IDF matrix (vocabulary + BoW)...")
+    print("\n[2/4] Building TF-IDF matrix")
     tfidf_matrix, tfidf_vec = build_tfidf_matrix(texts)
     vocabulary = tfidf_vec.vocabulary_  # {stem: col_index}, shared by all models
 
-    print("\n[3/4] Building BM25 stats...")
+    print("\n[3/4] Building BM25 stats")
     bm25 = build_bm25_stats(texts, vocabulary)
 
-    print("\n[4/4] Building LSA vectors...")
+    print("\n[4/4] Building LSA vectors")
     lsa_vectors, svd = build_lsa_vectors(tfidf_matrix)
 
-    print("\nSaving artefacts...")
+    print("\nSaving files...")
 
     joblib.dump(doc_meta, INDEX_PATH / "doc_meta.pkl")
 
