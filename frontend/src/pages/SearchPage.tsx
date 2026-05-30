@@ -12,25 +12,30 @@ const SearchPage = () => {
         const navigate = useNavigate();
         navigate("/")
     }
-    const [results, setResults] = useState<Result[]>([]);
+    const [results, setResults] = useState<Result|undefined>(undefined);
 
     useEffect(() => {
-        const fetchResults = () => {
-            const data: Result[] = [
-                {
-                    name: "test",
-                    similarity: 0.9
-                },
-                {
-                    name: "test",
-                    similarity: 0.2
-                },
-                {
-                    name: "test",
-                    similarity: 0.5
-                }
-            ]
+        // const mockFetchResults = () => {
+        //     const data: Result = 
+        //         {
+        //             rank: 1,
+        //             similarity: 0.9
+        //         },
+        //         {
+        //             name: "test",
+        //             similarity: 0.2
+        //         },
+        //         {
+        //             name: "test",
+        //             similarity: 0.5
+        //         }
+            
 
+        //     setResults(data);
+        // }
+        const fetchResults = async () => {
+            const response = await fetch(`http://localhost:8000/search?q=${query}`);
+            const data = await response.json() as Result;
             setResults(data);
         }
 
@@ -44,7 +49,7 @@ const SearchPage = () => {
                 Results for: <span className="text-blue-500">{query}</span>
             </h2>
             <div>
-                {results.map((result, i) => (
+                {results.bow.map((result, i) => (
                     < SearchResult
                         key={i}
                         id={i + 1}

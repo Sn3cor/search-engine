@@ -1,12 +1,15 @@
-import { type Result } from "../types/search";
+import { type ModelResult } from "../types/search";
 
 const SearchResult = ({ id, result }: {
     id: number,
-    result: Result
+    result: ModelResult
 }) => {
     return (
         <div>
-            <h2>{id}. {result.name} ({result.similarity})</h2>
+
+            <a href={result.url} target="_blank">
+                <h2>{id}. {result.title} ({result.score})</h2>
+            </a>
         </div>
     )
 };
