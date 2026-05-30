@@ -3,62 +3,52 @@ import { useState, useEffect } from "react";
 import { type Result } from "../types/search";
 import SearchForm from "../components/SearchForm";
 import Layout from "../components/Layout";
-import SearchResult from "../components/SearchResult";
+import ResultColumn from "../components/ResultColumn";
 
 const SearchPage = () => {
-    const [seachParams] = useSearchParams();
-    const query = seachParams.get('q');
-    if (query === "") {
-        const navigate = useNavigate();
-        navigate("/")
-    }
-    const [results, setResults] = useState<Result|undefined>(undefined);
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const query = searchParams.get("q");
+
+    const [results, setResults] = useState<Result | undefined>(undefined);
 
     useEffect(() => {
-        // const mockFetchResults = () => {
-        //     const data: Result = 
-        //         {
-        //             rank: 1,
-        //             similarity: 0.9
-        //         },
-        //         {
-        //             name: "test",
-        //             similarity: 0.2
-        //         },
-        //         {
-        //             name: "test",
-        //             similarity: 0.5
-        //         }
-            
-
-        //     setResults(data);
-        // }
-        const fetchResults = async () => {
-            const response = await fetch(`http://localhost:8000/search?q=${query}`);
-            const data = await response.json() as Result;
-            setResults(data);
+        if (!query) {
+            navigate("/");
+            return;
         }
 
+        setResults(undefined);
+
+        const fetchResults = async () => {
+            const response = await fetch(`http://localhost:8000/search`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ query, top_n: 10 }),
+            });
+            const data = (await response.json()) as Result;
+            setResults(data);
+        };
+
         fetchResults();
-    }, []);
+    }, [query, navigate]);
 
     return (
-        <Layout>
-            <SearchForm defaultValue={query ?? undefined} />
-            <h2 className="text-2xl">
-                Results for: <span className="text-blue-500">{query}</span>
-            </h2>
-            <div>
-                {results.bow.map((result, i) => (
-                    < SearchResult
-                        key={i}
-                        id={i + 1}
-                        result={result}
-                    />
-                ))}
+        <Layout wide>
+            <SearchForm key={query} defaultValue={query ?? undefined} />
+            <p className="w-full text-left text-slate-600">
+                Results for{" "}
+                <span className="font-semibold text-slate-900">&ldquo;{query}&rdquo;</span>
+            </p>
+            <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-3">
+                <ResultColumn label="BoW" variant="bow" results={results?.bow} />
+                <ResultColumn label="LSA" variant="lsa" results={results?.lsa} />
+                <ResultColumn label="BM25" variant="bm25" results={results?.bm25} />
             </div>
         </Layout>
-    )
-}
+    );
+};
 
 export default SearchPage;
