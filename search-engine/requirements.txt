@@ -1,0 +1,7 @@
+requests
+nltk
+scipy
+numpy
+scikit-learn
+joblib
+fastapi[standard]
