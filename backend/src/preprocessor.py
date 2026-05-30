@@ -3,11 +3,15 @@ import re
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 
-nltk.download('stopwords')
-nltk.download('punkt_tab')
+
+for pkg, path in [('stopwords', 'corpora/stopwords'), ('punkt_tab', 'tokenizers/punkt_tab')]:
+    try:
+        nltk.data.find(path)
+    except LookupError:
+        nltk.download(pkg, quiet=True)
+
 STOP_WORDS = set(stopwords.words('english'))
 stemmer = nltk.stem.PorterStemmer()
-
 
 def tokenize_text(text):
     text = text.lower()
