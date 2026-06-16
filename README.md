@@ -61,7 +61,10 @@ Po zebraniu danych kazdy z modeli buduje potrzebne dla siebie obiekty i zapisuje
 ## Modele wyszukiwania
 
 ### Bag of Words z TF-IDF
-Korpusy i zapytania reprezentowane są jako wektory TF-IDF w macierzy przy uzyciu TfidfVectorizer'a, gdzie dla kadzdego słowa w danym dokumencie liczone jest: $$tfidf(t,d,D) = tf(t,d) \cdot idf(t,D) $$ 
+Korpusy i zapytania reprezentowane są jako wektory TF-IDF w macierzy przy uzyciu TfidfVectorizer'a, gdzie dla kadzdego słowa w danym dokumencie liczone jest: 
+```math
+tfidf(t,d,D) = tf(t,d) \cdot idf(t,D)
+```
 gdzie:
 
 $t$ - słowo (jego pozostałość po stemmingu),  
