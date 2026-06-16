@@ -4,8 +4,9 @@ import nltk
 import numpy as np
 import scipy.sparse as sp
 from pathlib import Path
-from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
+from bm25_vectorizer import BM25Vectorizer
 
 from src.preprocessor import preprocess
 
@@ -13,17 +14,18 @@ DATA_PATH = Path(__file__).parent.parent / "data" / "data1.jsonl"
 INDEX_PATH = Path(__file__).parent.parent / "data" / "index"
 VOCAB_SIZE = 70_000
 LSA_COMPONENTS = 300
+BM25_K1 = 1.5
+BM25_B = 0.75
 
 def index_exists():
     required = [
         "tfidf_matrix.npz",
-        "bow_matrix.npz",
-        "lsa_vectors.npy",
+        "lsa_matrix.npy",
         "tfidf_vectorizer.pkl",
         "svd_model.pkl",
+        "bm25_matrix.npz",
+        "bm25_vectorizer.pkl",
         "doc_meta.pkl",
-        "vocabulary.pkl",
-        "bm25_stats.pkl",
     ]
 
     return all((INDEX_PATH / f).exists() for f in required)
@@ -47,7 +49,7 @@ def load_documents():
     return texts, doc_meta
 
 
-def build_tfidf_matrix(texts):
+def build_tfidf(texts):
     vectorizer = TfidfVectorizer(
         analyzer=preprocess,
         max_features=VOCAB_SIZE,
@@ -59,29 +61,23 @@ def build_tfidf_matrix(texts):
     return tfidf_matrix, vectorizer
 
 
-def build_bm25_stats(texts, vocabulary):
-    count_vectorizer = CountVectorizer(
+def build_bm25(texts):
+    vectorizer = BM25Vectorizer(
         analyzer=preprocess,
-        vocabulary=vocabulary,
+        transformer="bm25plus",
+        max_features=VOCAB_SIZE,
+        min_df=2,
+        k1=BM25_K1,
+        b=BM25_B,
     )
-    bow_matrix = count_vectorizer.fit_transform(texts)  # (n_docs, vocab) raw counts
-
-    doc_lengths = np.array(bow_matrix.sum(axis=1)).flatten()  # sum across terms per doc
-    avg_dl = float(doc_lengths.mean())
-    N = bow_matrix.shape[0]
-
-    print(f"  BM25: {N} docs, avg length {avg_dl:.1f} tokens")
-    return {
-        "bow_matrix": bow_matrix,
-        "doc_lengths": doc_lengths,
-        "avg_dl": avg_dl,
-        "N": N,
-    }
+    bm25_matrix = vectorizer.fit_transform(texts)
+    print(f"  BM25 matrix: {bm25_matrix.shape}, {bm25_matrix.nnz} non-zeros")
+    return vectorizer, bm25_matrix
 
 
-def build_lsa_vectors(tfidf_matrix) :
+def build_lsa(tfidf_matrix) :
     svd = TruncatedSVD(n_components=LSA_COMPONENTS, random_state=42)
-    lsa_vectors = svd.fit_transform(tfidf_matrix)  # (n_docs, LSA_COMPONENTS)
+    lsa_vectors = svd.fit_transform(tfidf_matrix)  
     print(f"  LSA: {lsa_vectors.shape}")
     return lsa_vectors, svd
 
@@ -91,35 +87,29 @@ def run_setup_pipeline():
     nltk.download('punkt_tab')
     INDEX_PATH.mkdir(parents=True, exist_ok=True)
 
-    print("\n[1/4] Loading documents")
+    print("\nLoading documents")
     texts, doc_meta = load_documents()
 
-    print("\n[2/4] Building TF-IDF matrix")
-    tfidf_matrix, tfidf_vec = build_tfidf_matrix(texts)
-    vocabulary = tfidf_vec.vocabulary_  # {stem: col_index}, shared by all models
+    print("\nBuilding TF-IDF matrix")
+    tfidf_matrix, tfidf_vec = build_tfidf(texts)
 
-    print("\n[3/4] Building BM25 stats")
-    bm25 = build_bm25_stats(texts, vocabulary)
+    print("\nBuilding BM25 matrix")
+    bm25_vec, bm25_matrix = build_bm25(texts)
 
-    print("\n[4/4] Building LSA vectors")
-    lsa_vectors, svd = build_lsa_vectors(tfidf_matrix)
+    print("\nBuilding LSA matrix")
+    lsa_matrix, svd = build_lsa(tfidf_matrix)
 
-    print("\nSaving files...")
 
     joblib.dump(doc_meta, INDEX_PATH / "doc_meta.pkl")
-
-    joblib.dump(vocabulary, INDEX_PATH / "vocabulary.pkl")
 
     joblib.dump(tfidf_vec, INDEX_PATH / "tfidf_vectorizer.pkl")
 
     sp.save_npz(INDEX_PATH / "tfidf_matrix.npz", tfidf_matrix.T.tocsr())
 
-    sp.save_npz(INDEX_PATH / "bow_matrix.npz", bm25["bow_matrix"].T.tocsr())
+    joblib.dump(bm25_vec, INDEX_PATH / "bm25_vectorizer.pkl")
+    sp.save_npz(INDEX_PATH / "bm25_matrix.npz", bm25_matrix.T.tocsr())
 
-    bm25_stats = {k: v for k, v in bm25.items() if k != "bow_matrix"}
-    joblib.dump(bm25_stats, INDEX_PATH / "bm25_stats.pkl")
-
-    np.save(INDEX_PATH / "lsa_vectors.npy", lsa_vectors.T)
+    np.save(INDEX_PATH / "lsa_matrix.npy", lsa_matrix.T)
     joblib.dump(svd, INDEX_PATH / "svd_model.pkl")
 
     print(f"\nDone. Index written to {INDEX_PATH}")

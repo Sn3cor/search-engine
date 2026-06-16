@@ -13,7 +13,7 @@ class LsaIndex:
         self._vectors_norm = None
 
     def load(self):
-        lsa_vectors = np.load(INDEX_PATH / "lsa_vectors.npy") 
+        lsa_vectors = np.load(INDEX_PATH / "lsa_matrix.npy") 
         self._svd = joblib.load(INDEX_PATH / "svd_model.pkl")
         self._vectorizer = joblib.load(INDEX_PATH / "tfidf_vectorizer.pkl")
         self._doc_meta = joblib.load(INDEX_PATH / "doc_meta.pkl")
@@ -30,7 +30,7 @@ class LsaIndex:
         if norm == 0:
             return []
 
-        scores = (query_lsa / norm @ self._vectors_norm).flatten()  
+        scores = ((query_lsa / norm) @ self._vectors_norm).flatten()  
 
         top_indices = np.argpartition(scores, -top_n)[-top_n:]
         top_indices = top_indices[np.argsort(scores[top_indices])[::-1]]
