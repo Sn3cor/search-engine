@@ -1,10 +1,12 @@
 # search-engine
 
 
+## Dataset
+Do realizacji wyszukiarki wykorzystałem 100 000 artykułów z Wikipedii z kategorii Historia. Słownik ograniczyłem w kazdym modelu do 70 000.
 
----
+<!-- --- -->
 
-## Struktura projektu
+<!-- ## Struktura projektu
 
 ```
 simple-browser/
@@ -25,14 +27,14 @@ simple-browser/
 └── frontend/                # Aplikacja kliencka
 ```
 
----
+--- -->
 
 ## Crawler
 
 W zasadzie nie jest to prawdziwy crawler, chodzący po stronach i zapisujący caly HTML, poniewaz wykorzystałem api udostępnione przez Wikipedię. 
 Cały skrypt oparty jest o algorytm BFS i odwiedzanie kolejnych stron z artykułami lub kategoriami. W przypadku natrafienia na stronę kategorii, zbierane są podlinkownae tam strony z artykułami oraz kolejne strony z kategoriami. 
 Crawler umozliwia skonfigurowanie kategorii początkowej w postaci stringa `Category:<Kategoria>`, ilości artykułów do zapisania oraz głębokości, do której masymalnie zejdzie algorytm. BFS został uzyty, poniewaz istnieje ryzyko wystąpienia cyklu, np. na głębokości 4 wystąpi strona kategorii z odnośnikiem do kategorii początkowej.
-Kazdy artykuł zostaje zapisany jako linijka w `data/data.jsonl` w postaci:
+Kazdy artykuł zostaje zapisany jako linijka w `search-engine/data/data.jsonl` w postaci:
 
 ```json
 {
@@ -42,30 +44,78 @@ Kazdy artykuł zostaje zapisany jako linijka w `data/data.jsonl` w postaci:
     "text": "Tekst artykułu"
 }
 ```
-
-## Dataset
-Wykorzystałem zbiorem danych jest 100 000 artykułów z angielskiej Wikipedii z kategorii Historia. Słownik 
-
 ## Indeksowanie
 
+Po zebraniu danych kazdy z modeli buduje potrzebne dla siebie obiekty i zapisuje je w do plików w katalogu `seatch-engine/data/index`
+
+| Plik | Model | Zawartość |
+|---|---|---|
+| `tfidf_matrix.npz` | BoW | Rzadka macierz TF-IDF |
+| `tfidf_vectorizer.pkl` | BoW, LSA | Dopasowany `TfidfVectorizer` (transformacja zapytań) |
+| `lsa_matrix.npy` | LSA | Gęsta macierz LSA |
+| `svd_model.pkl` | LSA | Dopasowany `TruncatedSVD` (rzutowanie zapytań dla LSA) |
+| `bm25_matrix.npz` | BM25 | Macierz wag BM25+ |
+| `bm25_vectorizer.pkl` | BM25 | Dopasowany `BM25Vectorizer` |
+| `doc_meta.pkl` | wszystkie | Metadane dokumentów: `page_id`, `title`, `url` |
 
 ## Modele wyszukiwania
 
-### Bag of Words / TF-IDF
-Dokumenty i zapytania reprezentowane jako wektory TF-IDF w przestrzeni 70 000 słów. Podobieństwo obliczane jako cosinus kąta między wektorem zapytania a każdym dokumentem. Macierz dokumentów przechowywana w formacie rzadkim (scipy CSR).
+### Bag of Words z TF-IDF
+Korpusy i zapytania reprezentowane są jako wektory TF-IDF w macierzy przy uzyciu TfidfVectorizer'a, gdzie dla kadzdego słowa w danym dokumencie liczone jest: $$tfidf(t,d,D) = tf(t,d) \cdot idf(t,D) $$ 
+gdzie:
+
+$t$ - słowo (jego pozostałość po stemmingu),  
+
+$d$ - dokument (jego pozostałość po stemmingu),
+
+$D$ - zbiór wszystkich dokumentów (jego pozostałość po stemmingu),
+
+$tf(t, d) = 1 + \ln(f_{t,d})$ - częstotliwość występowania słowa $t$ w dokumencie $d$; $f_{t,d}$ - częstotliwość wystąpień słowa $t$ w dokumancei $d$,
+
+$idf(t,D) = \ln\left(\frac{N + 1}{n_t + 1}\right) + 1$ - odwrotna częstotliwość występowania słowa $t$ w $N = |D|$ dokumentach; $n_t$ - ilość dokumentów zawierająca słowo $t$
+
+W ten sam sposób przekształcany jest wektor zapytania. Podobieństwo liczone jest jako odległość cosinusowa między wektorem zapytania a każdym dokumentem w macierzy. 
+
+Wynikiem jest $top_n=10$ dokumentów z największym podobieństwem (największym cosinusem kąta/najmniejszym kątem między wektorami)
 
 ### LSA (Latent Semantic Analysis)
-Macierz TF-IDF redukowana do 300 wymiarów latentnych przy użyciu Truncated SVD (sklearn). Zapytanie rzutowane do tej samej przestrzeni przez dopasowany model SVD, następnie obliczane podobieństwo cosinusowe. LSA grupuje semantycznie powiązane terminy, nawet jeśli nie pojawiają się razem dosłownie.
+Konstruowana jest macierz taka jak w modelu Bag of Words z TF-IDF, ale zostaje rozłozona na trzy macierze za pomocą dekompozycji SVD  a następnie przyblizona do rzędu 300 przy użyciu TruncatedSVD z paczki sklearn. Przy ładowaniu modelu do obsługi zapytań, kazdy wektor zostaj znormalizowany.
+
+Zapytanie przekształcane jest najpierw przez TfidfVecotrizer, a następnie do tego samego wymiaru przez zapisany wcześniej model TruncatedSVD. Podobieństwo, tak jak w modelu BoW jest liczone odległością cosinusową wektora zapytania od kazdego wektora w macierzy z dokumentami. Przed porównaniem wektor zostaje znormalizowany.
+
+Wynikiem jest $top_n=10$ dokumentów z największym podobieństwem (największym cosinusem kąta/najmniejszym kątem między wektorami)
 
 ### BM25
-Klasyczny probabilistyczny model wyszukiwania. Wykorzystuje pakiet [`bm25-vectorizer`](https://pypi.org/project/bm25-vectorizer/) (zgodny ze scikit-learn). Dopasowany `BM25Vectorizer` przechowuje macierz surowych liczb wystąpień, IDF, długości dokumentów oraz średnią długość. Ranking liczony jest metodą `rank()`, która dla każdego termu z zapytania sumuje wynik BM25 uwzględniający częstość termu, częstość dokumentową oraz normalizację długości dokumentu (parametry `k1=1.5`, `b=0.75`).
+Do obliczania wag bm25 wykorystałem paczkę [`bm25-vectorizer`](https://pypi.org/project/bm25-vectorizer/) oraz wariant `bm25plus`. Dokumenty zostają przekształcone za pomocą BM25Vectorizer'a do postaci macierzy z obliczonymi wagami dla kazdego slowa w kazdym dokumencie zgodnie ze wzorem:
+$$S(t, d) = idf(t) \cdot \left( \frac{f_{t,d} \cdot (k_1 + 1)}{f_{t,d} + k_1 \cdot \left(1 - b + b \cdot \frac{|d|}{avgdl}\right)} + \delta \right)$$
+gdzie:
 
+$idf(t,D) = \ln\left(\frac{N + 1}{n_t}\right)$ - odwrotna częstotliwość występowania słowa $t$ w $N = |D|$ dokumentach; $n_t$ - ilość dokumentów zawierająca słowo $t$;
+
+$f_{t,d}$ - częstotliwość wystąpień słowa $t$ w dokumancei $d$,
+
+$|d|$ - długość dokumentu $d$
+
+$avgdl$ - średnia długość dokumentów w zbiorze
+
+$k_1$ - parametr saturacji częstoliwości
+
+$b$ -  parametr kary za długość dokumentu
+
+$\delta$ - minimalna nagroda za obecność słowa
+
+Zapytanie jest przekształcany do postaci wektora $q$ zliczającego liczbę wystąpień kazdego słowa kluczowego, a następnie wykonywane jest mnozenie tego wektora z macierzą $W$ wag BM25+. Wektorem wynikowym $s$:
+$$s = qW$$
+Wynik dla danego dokumentu $s_d$ jest iloczynem wektora $q$ oraz wektora kolumnowego dokumentu $w_i$:
+$$s_d = qw_d = \sum_{i=1}^{V} q_i W_{i,d} $$
+
+Następnie z wektora $s$ wyciągane są $top_n=10$ dokumenty z największymi wagami jako wynik.
 
 ---
 
 
 
-## Wymagania
+## Instalacja wymaganych paczek
 
 ```bash
 cd search-engine
@@ -80,8 +130,6 @@ pip install -r requirements.txt
 
 ### 1. Zbieranie danych (crawler)
 
-Crawler przechodzi po kategoriach Wikipedii metodą BFS i zapisuje artykuły do `data/data1.jsonl`.
-
 ```bash
 cd search-engine
 python crawler/main.py
@@ -91,19 +139,12 @@ Domyślnie pobiera do 100 000 artykułów z kategorii `Category:History` z głę
 
 ### 2. Budowanie indeksu
 
-Indeks budowany jest automatycznie przy pierwszym uruchomieniu API. Można też zbudować ręcznie:
+Indeks budowany jest automatycznie przy pierwszym uruchomieniu API. Można też zbudować go wcześniej ręcznie:
 
 ```bash
 cd search-engine
 python -m src.indexer
 ```
-
-Proces budowania indeksu:
-1. Wczytanie dokumentów z `data/data1.jsonl` (pomijane artykuły bez treści)
-2. Budowa macierzy TF-IDF (`min_df=2`, `sublinear_tf=True`)
-3. Dopasowanie `BM25Vectorizer` (`k1=1.5`, `b=0.75`)
-4. Redukcja SVD do 300 wymiarów (LSA)
-5. Zapis artefaktów do `data/index/`
 
 ### 3. Uruchomienie API
 
@@ -112,17 +153,17 @@ cd search-engine
 fastapi dev src/api/main.py
 ```
 
-Serwer będzie dostępny pod `http://127.0.0.1:8000`, natomiast prosta dokumentacja pod `http://127.0.0.1:8000/docs`.
+Serwer będzie dostępny pod `http://127.0.0.1:8000`.
 
 ### 4. Zapytanie do API
 
 ```bash
 curl -X POST http://127.0.0.1:8000/search \
   -H "Content-Type: application/json" \
-  -d '{"query": "Roman Empire collapse", "top_n": 10}'
+  -d '{"query": "Roman Empire collapse", "top_n": 1}'
 ```
 
-Przykładowa odpowiedź z `top_n = 1`
+Przykładowa odpowiedź z $top_n = 1$
 
 ```json
 Response body
@@ -157,22 +198,5 @@ Response body
   ]
 }
 ```
-
----
-
-## Pliki indeksu
-
-Po zbudowaniu indeksu w `data/index/` pojawiają się:
-
-| Plik | Model | Zawartość |
-|---|---|---|
-| `tfidf_matrix.npz` | BoW | Macierz TF-IDF (vocab × n\_docs), scipy CSR |
-| `tfidf_vectorizer.pkl` | BoW, LSA | Dopasowany `TfidfVectorizer` (transformacja zapytań) |
-| `lsa_vectors.npy` | LSA | Wektory LSA dokumentów (300 × n\_docs) |
-| `svd_model.pkl` | LSA | Dopasowany `TruncatedSVD` (rzutowanie zapytań LSA) |
-| `bm25_vectorizer.pkl` | BM25 | Dopasowany `BM25Vectorizer` (macierz wystąpień, IDF, długości dokumentów, słownik) |
-| `doc_meta.pkl` | wszystkie | Metadane dokumentów: `page_id`, `title`, `url` |
-
-`BM25Vectorizer` jest samowystarczalny — przechowuje wewnątrz korpus i wszystkie statystyki potrzebne do rankingu, więc BM25 nie potrzebuje osobnych plików z macierzą ani statystykami.
 
 ---
