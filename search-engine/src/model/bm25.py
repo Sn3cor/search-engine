@@ -19,6 +19,7 @@ class Bm25Index:
         self._doc_meta = joblib.load(INDEX_PATH / "doc_meta.pkl")
 
     def search(self, query, top_n=10):
+        #Use bm_25 vecotirzer's vocalbulary in CountVectorizer.transform method
         query_counts = CountVectorizer.transform(self._vectorizer, [query])
 
         if query_counts.nnz == 0:

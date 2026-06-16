@@ -20,7 +20,7 @@ BM25_B = 0.75
 def index_exists():
     required = [
         "tfidf_matrix.npz",
-        "lsa_vectors.npy",
+        "lsa_matrix.npy",
         "tfidf_vectorizer.pkl",
         "svd_model.pkl",
         "bm25_matrix.npz",
@@ -64,6 +64,7 @@ def build_tfidf(texts):
 def build_bm25(texts):
     vectorizer = BM25Vectorizer(
         analyzer=preprocess,
+        transformer="bm25plus",
         max_features=VOCAB_SIZE,
         min_df=2,
         k1=BM25_K1,
@@ -95,8 +96,8 @@ def run_setup_pipeline():
     print("\nBuilding BM25 matrix")
     bm25_vec, bm25_matrix = build_bm25(texts)
 
-    print("\nBuilding LSA vectors")
-    lsa_vectors, svd = build_lsa(tfidf_matrix)
+    print("\nBuilding LSA matrix")
+    lsa_matrix, svd = build_lsa(tfidf_matrix)
 
 
     joblib.dump(doc_meta, INDEX_PATH / "doc_meta.pkl")
@@ -108,7 +109,7 @@ def run_setup_pipeline():
     joblib.dump(bm25_vec, INDEX_PATH / "bm25_vectorizer.pkl")
     sp.save_npz(INDEX_PATH / "bm25_matrix.npz", bm25_matrix.T.tocsr())
 
-    np.save(INDEX_PATH / "lsa_vectors.npy", lsa_vectors.T)
+    np.save(INDEX_PATH / "lsa_matrix.npy", lsa_matrix.T)
     joblib.dump(svd, INDEX_PATH / "svd_model.pkl")
 
     print(f"\nDone. Index written to {INDEX_PATH}")
