@@ -10,8 +10,11 @@ const SearchForm = ({ defaultValue }: {
         const target = e.target as typeof e.target & {
             query: { value: string };
         };
-        const query = target.query.value;
-        if (query) navigate(`/search?q=${encodeURIComponent(query)}`);
+        const query = target.query.value.trim();
+        if (query) {
+            const params = new URLSearchParams({ q: query });
+            navigate(`/search?${params.toString()}`);
+        }
     }
 
     return (
