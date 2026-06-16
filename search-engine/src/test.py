@@ -1,10 +1,14 @@
-from model.bow import BowIndex
-from model.bm25 import Bm25Index
-from model.lsa import LsaIndex
+from src.model.bow import BowIndex
+from src.model.bm25 import Bm25Index
+from src.model.lsa import LsaIndex
 
 bow = BowIndex()
 bm25 = Bm25Index()
 lsa = LsaIndex()
+
+bow.load()
+lsa.load()
+bm25.load()
 
 QUERY = "Polish wars"
 
