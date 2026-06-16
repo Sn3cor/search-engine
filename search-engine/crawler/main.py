@@ -65,7 +65,6 @@ class Crawler:
 
                 continue_token = {}
 
-                # Loop until all category members are found
                 while True:
                     params = {
                         "action": "query",
@@ -76,7 +75,6 @@ class Crawler:
                         **continue_token
                     }
 
-                    # Fetch a new category
                     category_data = self._fetch(params=params)
                     time.sleep(1)
                     if not category_data: break
@@ -91,7 +89,6 @@ class Crawler:
                         ns = page["ns"]
                         title = page["title"]
 
-                        # Fetch an article
                         if ns == 0 and page_id not in self.seen_pages:
                             params = {
                                 "action": "query",
@@ -121,7 +118,6 @@ class Crawler:
 
                             time.sleep(1)
 
-                        # Add a new category
                         elif ns == 14 and title not in self.seen_categories:
                             if depth < self.max_depth:
                                 self.seen_categories.add(title)

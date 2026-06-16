@@ -13,7 +13,7 @@ from src.preprocessor import preprocess
 DATA_PATH = Path(__file__).parent.parent / "data" / "data1.jsonl"
 INDEX_PATH = Path(__file__).parent.parent / "data" / "index"
 VOCAB_SIZE = 70_000
-LSA_COMPONENTS = 300
+LSA_COMPONENTS = 200
 BM25_K1 = 1.5
 BM25_B = 0.75
 
@@ -78,6 +78,8 @@ def build_bm25(texts):
 def build_lsa(tfidf_matrix) :
     svd = TruncatedSVD(n_components=LSA_COMPONENTS, random_state=42)
     lsa_vectors = svd.fit_transform(tfidf_matrix)  
+    variance = svd.explained_variance_ratio_.sum()
+    print(f"  LSA variance explained: {variance * 100:.2f}%")
     print(f"  LSA: {lsa_vectors.shape}")
     return lsa_vectors, svd
 
