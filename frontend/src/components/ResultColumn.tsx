@@ -2,9 +2,9 @@ import { type ModelResult } from "../types/search";
 import SearchResult from "./SearchResult";
 
 const accentStyles = {
-    bow: "border-t-blue-500 text-blue-700 bg-blue-50",
-    lsa: "border-t-violet-500 text-violet-700 bg-violet-50",
-    bm25: "border-t-emerald-500 text-emerald-700 bg-emerald-50",
+    bow: "text-blue-700",
+    lsa: "text-violet-700",
+    bm25: "text-emerald-700",
 };
 
 const ResultColumn = ({
@@ -19,7 +19,7 @@ const ResultColumn = ({
     return (
         <section className="flex min-w-0 flex-1 flex-col rounded-xl border border-slate-200 bg-slate-50/50">
             <div
-                className={`rounded-t-xl border-t-4 px-4 py-3 text-left font-semibold tracking-wide uppercase text-xs ${accentStyles[variant]}`}
+                className={`rounded-t-xl px-4 py-3 text-left font-semibold tracking-wide uppercase text-xs ${accentStyles[variant]}`}
             >
                 {label}
             </div>
