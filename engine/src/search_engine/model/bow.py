@@ -1,7 +1,8 @@
+from pathlib import Path
+
 import joblib
 import numpy as np
 import scipy.sparse as sp
-from pathlib import Path
 
 INDEX_PATH = Path(__file__).parent.parent.parent / "data" / "index"
 
@@ -14,11 +15,11 @@ class BowIndex:
 
     def load(self):
         self._vectorizer = joblib.load(INDEX_PATH / "tfidf_vectorizer.pkl")
-        self._matrix = sp.load_npz(INDEX_PATH / "tfidf_matrix.npz")  
+        self._matrix = sp.load_npz(INDEX_PATH / "tfidf_matrix.npz")
         self._doc_meta = joblib.load(INDEX_PATH / "doc_meta.pkl")
 
-    def search(self, query, top_n = 10):
-        query_vec = self._vectorizer.transform([query])          
+    def search(self, query, top_n=10):
+        query_vec = self._vectorizer.transform([query])
         query_norm = np.sqrt(query_vec.multiply(query_vec).sum())
         if query_norm == 0:
             return []

@@ -3,6 +3,7 @@
 **/data/*
 **/*.DS_Store
 **/__pycache__
+**/.ruff_cache
 
 **/node_modules
 **/dist

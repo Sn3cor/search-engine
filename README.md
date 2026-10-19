@@ -8,7 +8,7 @@
 
 ```
 simple-browser/
-├── search-engine/
+├── engine/
 │   ├── crawler/
 │   │   └── main.py          # Crawler BFS po kategoriach Wikipedii
 │   ├── src/

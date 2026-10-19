@@ -1,7 +1,8 @@
+from pathlib import Path
+
 import joblib
 import numpy as np
 import scipy.sparse as sp
-from pathlib import Path
 from sklearn.feature_extraction.text import CountVectorizer
 
 INDEX_PATH = Path(__file__).parent.parent.parent / "data" / "index"
@@ -19,7 +20,7 @@ class Bm25Index:
         self._doc_meta = joblib.load(INDEX_PATH / "doc_meta.pkl")
 
     def search(self, query, top_n=10):
-        #Use bm_25 vecotirzer's vocalbulary in CountVectorizer.transform method
+        # Use bm_25 vecotirzer's vocalbulary in CountVectorizer.transform method
         query_counts = CountVectorizer.transform(self._vectorizer, [query])
 
         if query_counts.nnz == 0:

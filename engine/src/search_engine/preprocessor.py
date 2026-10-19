@@ -1,21 +1,25 @@
-import nltk
 import re
+
+import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 
-
-for pkg, path in [('stopwords', 'corpora/stopwords'), ('punkt_tab', 'tokenizers/punkt_tab')]:
+for pkg, path in [
+    ("stopwords", "corpora/stopwords"),
+    ("punkt_tab", "tokenizers/punkt_tab"),
+]:
     try:
         nltk.data.find(path)
     except LookupError:
         nltk.download(pkg, quiet=True)
 
-STOP_WORDS = set(stopwords.words('english'))
+STOP_WORDS = set(stopwords.words("english"))
 stemmer = nltk.stem.PorterStemmer()
+
 
 def tokenize_text(text):
     text = text.lower()
-    text = re.sub(r'[^a-z0-9\s]', '', text)
+    text = re.sub(r"[^a-z0-9\s]", "", text)
     text = word_tokenize(text)
     text = [word for word in text if word not in STOP_WORDS]
     return text
@@ -28,9 +32,11 @@ def stem_words(words):
 def preprocess(text: str) -> list[str]:
     return stem_words(tokenize_text(text))
 
-if __name__ == "__main__":
+def main():
     text = "Hello, world! This is a test sentence running on a computer."
     print(tokenize_text(text))
     print(stem_words(tokenize_text(text)))
     print(preprocess(text))
-    
+
+if __name__ == "__main__":
+    main()
