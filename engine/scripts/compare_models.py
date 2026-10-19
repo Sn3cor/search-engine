@@ -1,6 +1,6 @@
-from src.model.bow import BowIndex
-from src.model.bm25 import Bm25Index
-from src.model.lsa import LsaIndex
+from search_engine.model.bow import BowIndex
+from search_engine.model.bm25 import Bm25Index
+from search_engine.model.lsa import LsaIndex
 
 bow = BowIndex()
 bm25 = Bm25Index()

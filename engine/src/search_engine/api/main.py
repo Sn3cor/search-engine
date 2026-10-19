@@ -3,10 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 
-from src.model.bow import BowIndex
-from src.model.bm25 import Bm25Index
-from src.model.lsa import LsaIndex
-from src.indexer import index_exists, run_setup_pipeline
+from search_engine.model.bow import BowIndex
+from search_engine.model.bm25 import Bm25Index
+from search_engine.model.lsa import LsaIndex
+from search_engine.indexer import index_exists, run_setup_pipeline
 
 bow = BowIndex()
 lsa = LsaIndex()

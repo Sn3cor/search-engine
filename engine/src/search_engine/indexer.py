@@ -8,7 +8,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 from bm25_vectorizer import BM25Vectorizer
 
-from src.preprocessor import preprocess
+from search_engine.preprocessor import preprocess
 
 DATA_PATH = Path(__file__).parent.parent / "data" / "data1.jsonl"
 INDEX_PATH = Path(__file__).parent.parent / "data" / "index"
