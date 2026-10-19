@@ -2,13 +2,15 @@ import requests
 import json
 from collections import deque
 import time
+from pathlib import Path
+
 
 class Crawler:
     def __init__(self, category:str, max_pages = 70000, max_depth = 0, output_file = "data.jsonl"):
         self.api_url = "https://en.wikipedia.org/w/api.php"
         self.max_pages = max_pages
         self.max_depth = max_depth
-        self.output_path = f"./../data/{output_file}"
+        self.output_path = f"data/{output_file}"
 
         self.seen_pages = set()
         self.seen_categories = set()
@@ -51,6 +53,7 @@ class Crawler:
         return text, url
 
     def crawl(self):
+        Path(self.output_path).parent.mkdir(parents=True, exist_ok=True)
         with open(self.output_path, "w", encoding="utf-8") as f:
             print(f"Starting crawling {self.max_pages} pages\n")
 
@@ -132,8 +135,7 @@ class Crawler:
 
 
 if __name__ == "__main__":
-    crawler = Crawler("Category:History", max_pages=100000, max_depth=5)
-    crawler.crawl()
+    Crawler("Category:History", max_pages=100000, max_depth=5).crawl()
 
 
 
