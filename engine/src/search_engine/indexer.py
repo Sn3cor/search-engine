@@ -11,8 +11,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 from search_engine.preprocessor import preprocess
 
-DATA_PATH = Path(__file__).parent.parent / "data" / "data1.jsonl"
-INDEX_PATH = Path(__file__).parent.parent / "data" / "index"
+DATA_PATH = Path(__file__).parent.parent.parent.parent / "data" / "data.jsonl"
+INDEX_PATH = Path(__file__).parent.parent.parent.parent / "data" / "index"
 VOCAB_SIZE = 70_000
 LSA_COMPONENTS = 200
 BM25_K1 = 1.5
