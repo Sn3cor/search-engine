@@ -1,0 +1,35 @@
+[project]
+name = "search-engine"
+version = "0.1.0"
+description = "Search engine project"
+authors = [
+    { name = "Sn3cor", email = "jakub.krupa23@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "bm25-vectorizer==0.0.4",
+    "fastapi[standard]>=0.149.0",
+    "joblib>=1.6.0",
+    "nltk>=3.10.3",
+    "numpy>=2.5.4",
+    "scikit-learn>=1.9.1",
+    "scipy>=1.18.1",
+]
+
+[project.scripts]
+se-index = "search_engine.indexer:main"
+se-api = "search_engine.api.main:run"
+
+[build-system]
+requires = ["uv_build>=0.12.2,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.17.1",
+]
+
+[tool.uv.workspace]
+members = [
+    "packages/crawler",
+]

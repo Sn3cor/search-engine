@@ -1,172 +1,174 @@
 # search-engine
 
-## Jakub Krupa
 
----
-
-## Struktura projektu
+## Project structure
 
 ```
-simple-browser/
-├── search-engine/
-│   ├── crawler/
-│   │   └── main.py          # Crawler BFS po kategoriach Wikipedii
-│   ├── src/
-│   │   ├── preprocessor.py  # Funckje tokenizacji i stemmingu korpusu
-│   │   ├── indexer.py       # Budowanie indeksu (BoW z TF-IDF, BM25, LSA)
-│   │   ├── test.py          # Skrypt do testowania modeli bez REST API
-│   │   ├── api/
-│   │   │   └── main.py      # REST API (FastAPI)
-│   │   └── model/
-│   │       ├── bow.py       # Model Bag of Words z TF-IDF
-│   │       ├── bm25.py      # Model BM25
-│   │       └── lsa.py       # Model LSA (Latent Semantic Analysis)
-│   └── requirements.txt
-└── frontend/                # Aplikacja kliencka
+search-engine/
+├── engine/                          # uv workspace root and the search-engine package
+│   ├── pyproject.toml
+│   ├── uv.lock
+│   ├── data/                        # Corpus and index, created by the crawler and indexer
+│   ├── packages/
+│   │   └── crawler/                 # Workspace member with its own dependencies
+│   │       ├── pyproject.toml
+│   │       └── src/crawler/
+│   │           └── crawler.py       # BFS crawler over Wikipedia categories
+│   ├── scripts/
+│   │   └── compare_models.py        # Script for testing the models without the REST API
+│   └── src/search_engine/
+│       ├── preprocessor.py          # Corpus tokenization and stemming functions
+│       ├── indexer.py               # Index building (BoW with TF-IDF, BM25, LSA)
+│       ├── api/
+│       │   └── main.py              # REST API (FastAPI)
+│       └── model/
+│           ├── bow.py               # Bag of Words model with TF-IDF
+│           ├── bm25.py              # BM25 model
+│           └── lsa.py               # LSA model (Latent Semantic Analysis)
+└── frontend/                        # Client application
 ```
 
 ---
 
 ## Dataset
-Do realizacji wyszukiarki wykorzystałem 100 000 artykułów z Wikipedii z kategorii Historia. Słownik ograniczyłem w kazdym modelu do 70 000 słów.
+The search engine is built on 100,000 Wikipedia articles from the History category. In every model the vocabulary is limited to 70,000 words.
 
 
 ## "Crawler"
 
-W zasadzie nie jest to prawdziwy crawler, chodzący po stronach i pobierający caly HTML, poniewaz wykorzystałem API udostępnione przez Wikipedię. Cały skrypt oparty jest o algorytm BFS. W przypadku natrafienia na stronę kategorii, pobierane są przez API podlinkowane strony z artykułami oraz kolejkowane są strony z kategoriami. Crawler umozliwia skonfigurowanie kategorii początkowej w postaci stringa `Category:<Kategoria>`, liczby artykułów do zapisania oraz głębokości kategorii, do której masymalnie zejdzie algorytm. Wykorzystałem BFSa, aby pobierać artykuły spokrewnione z początkową kategorią. Dodałem takze zabezpieczenia przed wpadnięciem w cykl przez zapamiętywanie odwiedzonych kategorii. Żaden z artykułów równiez nie zostanie pobrany dwukrotnie przez zapamiętywanie page_id pobranych artykułów.
-Kazdy artykuł zostaje zapisany jako linijka w `search-engine/data/data.jsonl` w postaci:
+Strictly speaking this is not a real crawler that walks web pages and downloads their full HTML, because it uses the API provided by Wikipedia. The whole script is based on the BFS algorithm. When it reaches a category page, the linked article pages are fetched through the API and the subcategory pages are queued. The crawler lets you configure the starting category as a `Category:<Category>` string, the number of articles to save, and the maximum category depth the algorithm will descend to. I used BFS so that the fetched articles are related to the starting category. I also added protection against getting stuck in a cycle by remembering visited categories. No article is fetched twice either, because the page_id of every fetched article is remembered.
+Each article is saved as one line in `engine/data/data.jsonl` in the form:
 
 ```json
 {
-    "id": 00000
-    "title": "Tytuł"
-    "utl": "https://en.wikipedia.org/wiki/Artykuł"
-    "text": "Tekst artykułu"
+    "id": 00000,
+    "title": "Title",
+    "url": "https://en.wikipedia.org/wiki/Article",
+    "text": "Article text"
 }
 ```
 
-## Przetworzenie tekstu
-Każdy vectorizer użyty w procesie indeksowania wykorzystuje funkcję `preprocess` z `search-engine/src/preprocessor.py`. Jej zadaniem jest normalizacja tekstu wejściowego, obejmująca konwersję na małe litery oraz usunięcie niepotrzebnych znaków. Dodatkowo filtrowane są powszechne słowa niewnoszące znaczenia semantycznego (stop words). Następnie przy pomocy algorytmu Porter Stemmer pozostałe tokeny sprowadzane są do rdzeni.
+## Text preprocessing
+Every vectorizer used in the indexing process uses the `preprocess` function from `engine/src/search_engine/preprocessor.py`. Its job is to normalize the input text, which includes converting it to lowercase and removing unnecessary characters. Common words that carry no semantic meaning (stop words) are also filtered out. The remaining tokens are then reduced to their stems with the Porter Stemmer algorithm.
 
-## Indeksowanie
+## Indexing
 
-Po zebraniu danych kazdy z modeli buduje potrzebne dla siebie obiekty i zapisuje je w do plików w katalogu `search-engine/data/index`
+After the data is collected, each model builds the objects it needs and saves them to files in the `engine/data/index` directory.
 
-| Plik | Model | Zawartość |
+| File | Model | Contents |
 |---|---|---|
-| `tfidf_matrix.npz` | BoW | Rzadka macierz TF-IDF |
-| `tfidf_vectorizer.pkl` | BoW, LSA | Dopasowany `TfidfVectorizer` (transformacja zapytań) |
-| `lsa_matrix.npy` | LSA | Gęsta macierz LSA |
-| `svd_model.pkl` | LSA | Dopasowany `TruncatedSVD` (rzutowanie zapytań dla LSA) |
-| `bm25_matrix.npz` | BM25 | Macierz wag BM25+ |
-| `bm25_vectorizer.pkl` | BM25 | Dopasowany `BM25Vectorizer` |
-| `doc_meta.pkl` | wszystkie | Metadane dokumentów: `page_id`, `title`, `url` |
+| `tfidf_matrix.npz` | BoW | Sparse TF-IDF matrix |
+| `tfidf_vectorizer.pkl` | BoW, LSA | Fitted `TfidfVectorizer` (query transformation) |
+| `lsa_matrix.npy` | LSA | Dense LSA matrix |
+| `svd_model.pkl` | LSA | Fitted `TruncatedSVD` (query projection for LSA) |
+| `bm25_matrix.npz` | BM25 | BM25+ weight matrix |
+| `bm25_vectorizer.pkl` | BM25 | Fitted `BM25Vectorizer` |
+| `doc_meta.pkl` | all | Document metadata: `page_id`, `title`, `url` |
 
-## Modele wyszukiwania
+## Search models
 
-### Bag of Words z TF-IDF
-Dokumenty przetwarzane są przy uzyciu TfidfVectorizer'a do postaci wektorów kolumnowych z wagami TF-IDF (Term Frequency - Inverse Document Frequency). Dla kadzdego słowa w danym dokumencie liczone jest: 
+### Bag of Words with TF-IDF
+Documents are processed with a TfidfVectorizer into column vectors with TF-IDF (Term Frequency - Inverse Document Frequency) weights. For each word in a given document the following is computed:
 ```math
 tfidf(t,d,D) = tf(t,d) \cdot idf(t,D)
 ```
-gdzie:
+where:
 
-$t$ - słowo (jego pozostałość po stemmingu),  
+$t$ - a word (after stemming),
 
-$d$ - dokument (jego pozostałość po stemmingu),
+$d$ - a document (after stemming),
 
-$D$ - zbiór wszystkich dokumentów (jego pozostałość po stemmingu),
+$D$ - the set of all documents (after stemming),
 
-$tf(t, d) = 1 + \ln(f_{t,d})$ - częstotliwość występowania słowa $t$ w dokumencie $d$; $f_{t,d}$ - liczba wystąpień słowa $t$ w dokumancie $d$,
+$tf(t, d) = 1 + \ln(f_{t,d})$ - the frequency of word $t$ in document $d$; $f_{t,d}$ - the number of occurrences of word $t$ in document $d$,
 
-$idf(t,D) = \ln\left(\frac{N + 1}{n_t + 1}\right) + 1$ - odwrotna częstotliwość występowania słowa $t$ w $N = |D|$ dokumentach; $n_t$ - liczba dokumentów zawierająca słowo $t$
+$idf(t,D) = \ln\left(\frac{N + 1}{n_t + 1}\right) + 1$ - the inverse frequency of word $t$ across $N = |D|$ documents; $n_t$ - the number of documents containing word $t$
 
-W ten sam sposób przekształcany jest wektor zapytania. Podobieństwo liczone jest jako cosinus między wektorem zapytania a każdym werkotrem dokumentu w macierzy. 
+The query vector is transformed in the same way. Similarity is computed as the cosine between the query vector and every document vector in the matrix.
 
-Wynikiem jest $top_n=10$ dokumentów z największym podobieństwami.
+The result is the $top_n=10$ documents with the highest similarity.
 
 ### LSA (Latent Semantic Analysis)
-Konstruowana jest macierz taka jak w modelu Bag of Words z TF-IDF, ale zostaje rozłozona na trzy macierze za pomocą dekompozycji SVD  a następnie przyblizona do rzędu 300 przy użyciu TruncatedSVD z paczki sklearn. Przy ładowaniu modelu do obsługi zapytań, kazdy wektor korpusu zostaje znormalizowany.
+A matrix is built the same way as in the Bag of Words with TF-IDF model, but it is decomposed into three matrices using SVD and then approximated to rank 200 with TruncatedSVD from the sklearn package. When the model is loaded to serve queries, every corpus vector is normalized.
 
-Zapytanie przekształcane jest najpierw przez TfidfVecotrizer, a następnie sprowadzane do tego samego wymiaru przez zapisany wcześniej model TruncatedSVD oraz zostaje znormalizowane. Podobieństwo, tak jak w modelu BoW jest liczone cosinusem kąta między wektora zapytania, a kazdym wektorem dokumentu w macierzy.
+The query is first transformed by the TfidfVectorizer, then reduced to the same dimension by the previously saved TruncatedSVD model, and normalized. As in the BoW model, similarity is computed as the cosine of the angle between the query vector and every document vector in the matrix.
 
-Wynikiem jest $top_n=10$ dokumentów z największymi podobieństwami.
+The result is the $top_n=10$ documents with the highest similarity.
 
 ### BM25
-Do obliczania wag bm25 wykorystałem paczkę [`bm25-vectorizer`](https://pypi.org/project/bm25-vectorizer/) oraz wariant `bm25plus`. Dokumenty zostają przekształcone za pomocą BM25Vectorizer'a do postaci macierzy z obliczonymi wagami dla kazdego slowa w kazdym dokumencie zgodnie ze wzorem:
+To compute the BM25 weights I used the [`bm25-vectorizer`](https://pypi.org/project/bm25-vectorizer/) package with the `bm25plus` variant. Documents are transformed with a BM25Vectorizer into a matrix of weights computed for every word in every document according to the formula:
 $$S(t, d) = idf(t) \cdot \left( \frac{f_{t,d} \cdot (k_1 + 1)}{f_{t,d} + k_1 \cdot \left(1 - b + b \cdot \frac{|d|}{avgdl}\right)} + \delta \right)$$
-gdzie:
+where:
 
-$idf(t,D) = \ln\left(\frac{N + 1}{n_t}\right)$ - odwrotna częstotliwość występowania słowa $t$ w $N = |D|$ dokumentach; $n_t$ - liczba dokumentów zawierająca słowo $t$;
+$idf(t,D) = \ln\left(\frac{N + 1}{n_t}\right)$ - the inverse frequency of word $t$ across $N = |D|$ documents; $n_t$ - the number of documents containing word $t$;
 
-$f_{t,d}$ - częstotliwość wystąpień słowa $t$ w dokumancei $d$,
+$f_{t,d}$ - the number of occurrences of word $t$ in document $d$,
 
-$|d|$ - długość dokumentu $d$
+$|d|$ - the length of document $d$
 
-$avgdl$ - średnia długość dokumentów w zbiorze
+$avgdl$ - the average document length in the collection
 
-$k_1$ - parametr saturacji częstoliwości
+$k_1$ - the term frequency saturation parameter
 
-$b$ -  parametr kary za długość dokumentu
+$b$ - the document length penalty parameter
 
-$\delta$ - minimalna nagroda za obecność słowa
+$\delta$ - the minimum reward for the presence of a word
 
-Zapytanie przekształcane jest do postaci wektora $q$ zliczającego liczbę wystąpień kazdego słowa kluczowego. Następnie obliczany jest wektor wyników $s$ jako iloczyn wektora zapytania i macierzy wag $W$
+The query is transformed into a vector $q$ that counts the occurrences of each keyword. The score vector $s$ is then computed as the product of the query vector and the weight matrix $W$
 ```math
 s = qW
 ```
-Wynik dla danego dokumentu $s_d$ jest iloczynem wektora $q$ oraz wektora kolumnowego dokumentu $w_d$:
+The score for a given document $s_d$ is the product of the vector $q$ and the document's column vector $w_d$:
 
 ```math
 s_d = qw_d = \sum_{i=1}^{V} q_i W_{i,d}
 ```
-Wynikiem jest $top_n=10$ dokumentów z największymi wagami
+The result is the $top_n=10$ documents with the highest scores.
 
 ---
 
-## Instalacja wymaganych paczek
+## Installing the required packages
+
+The backend is a [uv](https://docs.astral.sh/uv/) workspace. A single command installs both the search engine and the crawler into one shared environment:
 
 ```bash
-cd search-engine
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+cd engine
+uv sync --all-packages
 ```
 
 ---
 
-## Uruchomienie
+## Running
 
-### 1. Zbieranie danych (crawler)
+All commands are run from the `engine/` directory.
 
-```bash
-cd search-engine
-python crawler/main.py
-```
-
-Domyślnie pobiera do 100 000 artykułów z kategorii `Category:History` z głębokością 5.
-
-### 2. Budowanie indeksu
-
-Indeks budowany jest automatycznie przy pierwszym uruchomieniu API. Można też zbudować go wcześniej ręcznie:
+### 1. Collecting data (crawler)
 
 ```bash
-cd search-engine
-python -m src.indexer
+uv run --package crawler crawl
 ```
 
-### 3. Uruchomienie API
+`--package crawler` is needed because `uv run` targets the workspace root (the search engine) by default. The crawler starts from the `Category:History` category with a depth of 5.
+
+### 2. Building the index
+
+The index is built automatically the first time the API starts. You can also build it manually beforehand:
 
 ```bash
-cd search-engine
-fastapi dev src/api/main.py
+uv run se-index
 ```
 
-Serwer będzie dostępny pod `http://127.0.0.1:8000`.
+### 3. Starting the API
 
-## Przykładowe zapytania 
+```bash
+uv run fastapi dev src/search_engine/api/main.py
+```
 
-Proste zapytanie: `the plague`
+The server will be available at `http://127.0.0.1:8000`.
+
+## Example queries
+
+Simple query: `the plague`
 
 ```bash
 curl -X POST http://127.0.0.1:8000/search \
@@ -174,11 +176,9 @@ curl -X POST http://127.0.0.1:8000/search \
   -d '{"query": "the plague", "top_n": 1}'
 ```
 
-Przykładowa odpowiedź z $top_n = 1$
+Example response with $top_n = 1$
 
 ```json
-Response body
-
 {
   "bow": [
     {
@@ -212,7 +212,7 @@ Response body
 
 ---
 
-Bardziej opisowe zapytanie: `terrible disease outbreak that killed a massive part of the population in europe`
+More descriptive query: `terrible disease outbreak that killed a massive part of the population in europe`
 
 ```bash
 curl -X POST http://127.0.0.1:8000/search \
@@ -220,7 +220,7 @@ curl -X POST http://127.0.0.1:8000/search \
   -d '{"query": "terrible disease outbreak that killed a massive part of the population in europe", "top_n": 1}'
 ```
 
-Przykładowa odpowiedź z $top_n = 1$
+Example response with $top_n = 1$
 
 
 ```json
@@ -255,7 +255,7 @@ Przykładowa odpowiedź z $top_n = 1$
 }
 ```
 
-## Uruchomienie aplikacji klienckiej
+## Running the client application
 
 ```sh
 cd frontend

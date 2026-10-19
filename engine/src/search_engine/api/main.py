@@ -1,12 +1,13 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from contextlib import asynccontextmanager
 
-from src.model.bow import BowIndex
-from src.model.bm25 import Bm25Index
-from src.model.lsa import LsaIndex
-from src.indexer import index_exists, run_setup_pipeline
+from search_engine.indexer import index_exists, run_setup_pipeline
+from search_engine.model.bm25 import Bm25Index
+from search_engine.model.bow import BowIndex
+from search_engine.model.lsa import LsaIndex
 
 bow = BowIndex()
 lsa = LsaIndex()
@@ -43,10 +44,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.post("/search")
 def search(request: SearchRequest):
     return {
-        "bow":  bow.search(request.query, request.top_n),
-        "lsa":  lsa.search(request.query, request.top_n),
+        "bow": bow.search(request.query, request.top_n),
+        "lsa": lsa.search(request.query, request.top_n),
         "bm25": bm25.search(request.query, request.top_n),
     }

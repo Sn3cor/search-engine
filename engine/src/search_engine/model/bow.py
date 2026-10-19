@@ -1,31 +1,30 @@
+from pathlib import Path
+
 import joblib
 import numpy as np
 import scipy.sparse as sp
-from pathlib import Path
-from sklearn.feature_extraction.text import CountVectorizer
 
 INDEX_PATH = Path(__file__).parent.parent.parent / "data" / "index"
 
 
-class Bm25Index:
+class BowIndex:
     def __init__(self):
         self._vectorizer = None
         self._matrix = None
         self._doc_meta = None
 
     def load(self):
-        self._vectorizer = joblib.load(INDEX_PATH / "bm25_vectorizer.pkl")
-        self._matrix = sp.load_npz(INDEX_PATH / "bm25_matrix.npz")
+        self._vectorizer = joblib.load(INDEX_PATH / "tfidf_vectorizer.pkl")
+        self._matrix = sp.load_npz(INDEX_PATH / "tfidf_matrix.npz")
         self._doc_meta = joblib.load(INDEX_PATH / "doc_meta.pkl")
 
     def search(self, query, top_n=10):
-        #Use bm_25 vecotirzer's vocalbulary in CountVectorizer.transform method
-        query_counts = CountVectorizer.transform(self._vectorizer, [query])
-
-        if query_counts.nnz == 0:
+        query_vec = self._vectorizer.transform([query])
+        query_norm = np.sqrt(query_vec.multiply(query_vec).sum())
+        if query_norm == 0:
             return []
 
-        scores = (query_counts @ self._matrix).toarray().flatten()
+        scores = (query_vec @ self._matrix).toarray().flatten() / query_norm
 
         top_indices = np.argpartition(scores, -top_n)[-top_n:]
         top_indices = top_indices[np.argsort(scores[top_indices])[::-1]]
@@ -39,5 +38,4 @@ class Bm25Index:
                 "score": float(scores[i]),
             }
             for rank, i in enumerate(top_indices)
-            if scores[i] > 0
         ]
