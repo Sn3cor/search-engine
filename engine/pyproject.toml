@@ -19,7 +19,6 @@ dependencies = [
 
 [project.scripts]
 se-index = "search_engine.indexer:main"
-se-api = "search_engine.api.main:run"
 
 [build-system]
 requires = ["uv_build>=0.12.2,<0.13.0"]
