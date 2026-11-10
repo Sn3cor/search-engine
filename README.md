@@ -8,7 +8,9 @@ search-engine/
 ├── engine/                          # uv workspace root and the search-engine package
 │   ├── pyproject.toml
 │   ├── uv.lock
-│   ├── data/                        # Corpus and index, created by the crawler and indexer
+│   ├── data/                        # Created by the crawler and indexer (git-ignored)
+│   │   ├── data.jsonl               # Crawled articles
+│   │   └── index/                   # Saved models and matrices
 │   ├── packages/
 │   │   └── crawler/                 # Workspace member with its own dependencies
 │   │       ├── pyproject.toml
@@ -17,6 +19,7 @@ search-engine/
 │   ├── scripts/
 │   │   └── compare_models.py        # Script for testing the models without the REST API
 │   └── src/search_engine/
+│       ├── config.py                # Data and index paths
 │       ├── preprocessor.py          # Corpus tokenization and stemming functions
 │       ├── indexer.py               # Index building (BoW with TF-IDF, BM25, LSA)
 │       ├── api/
@@ -57,13 +60,13 @@ After the data is collected, each model builds the objects it needs and saves th
 
 | File | Model | Contents |
 |---|---|---|
-| `tfidf_matrix.npz` | BoW | Sparse TF-IDF matrix |
-| `tfidf_vectorizer.pkl` | BoW, LSA | Fitted `TfidfVectorizer` (query transformation) |
-| `lsa_matrix.npy` | LSA | Dense LSA matrix |
-| `svd_model.pkl` | LSA | Fitted `TruncatedSVD` (query projection for LSA) |
-| `bm25_matrix.npz` | BM25 | BM25+ weight matrix |
-| `bm25_vectorizer.pkl` | BM25 | Fitted `BM25Vectorizer` |
 | `doc_meta.pkl` | all | Document metadata: `page_id`, `title`, `url` |
+| `tfidf_vectorizer.pkl` | BoW | Fitted `TfidfVectorizer` (query → TF-IDF vector) |
+| `tfidf_matrix.npz` | BoW | Sparse TF-IDF matrix, terms × documents |
+| `lsa_vectorizer.pkl` | LSA | Fitted pipeline `TfidfVectorizer → TruncatedSVD → Normalizer` (query → LSA vector) |
+| `lsa_matrix.npy` | LSA | Dense, L2-normalised LSA matrix, components × documents |
+| `bm25_vectorizer.pkl` | BM25 | `CountVectorizer` with the BM25 vocabulary (query → term counts) |
+| `bm25_matrix.npz` | BM25 | Sparse BM25+ weight matrix, terms × documents |
 
 ## Search models
 
@@ -84,16 +87,16 @@ $tf(t, d) = 1 + \ln(f_{t,d})$ - the frequency of word $t$ in document $d$; $f_{t
 
 $idf(t,D) = \ln\left(\frac{N + 1}{n_t + 1}\right) + 1$ - the inverse frequency of word $t$ across $N = |D|$ documents; $n_t$ - the number of documents containing word $t$
 
-The query vector is transformed in the same way. Similarity is computed as the cosine between the query vector and every document vector in the matrix.
+The query vector is transformed in the same way. Similarity is computed as the cosine between the query vector and every document vector in the matrix. `TfidfVectorizer` L2-normalises every vector (`norm="l2"`), so the dot product of the query vector and a document vector equals their cosine similarity.
 
-The result is the $top_n=10$ documents with the highest similarity.
+The result is up to $top_n$ (default 10) documents with a score greater than 0, sorted by score.
 
 ### LSA (Latent Semantic Analysis)
-A matrix is built the same way as in the Bag of Words with TF-IDF model, but it is decomposed into three matrices using SVD and then approximated to rank 200 with TruncatedSVD from the sklearn package. When the model is loaded to serve queries, every corpus vector is normalized.
+A matrix is built the same way as in the Bag of Words with TF-IDF model, then reduced to rank 200 with `TruncatedSVD` and L2-normalised with `Normalizer`. Both steps run once at indexing time as an sklearn pipeline.
 
-The query is first transformed by the TfidfVectorizer, then reduced to the same dimension by the previously saved TruncatedSVD model, and normalized. As in the BoW model, similarity is computed as the cosine of the angle between the query vector and every document vector in the matrix.
+At query time the saved pipeline (`TfidfVectorizer → TruncatedSVD → Normalizer`) turns the query into a unit vector in the same space. Because all vectors have unit length, the dot product with the document matrix is the cosine similarity.
 
-The result is the $top_n=10$ documents with the highest similarity.
+The result is up to $top_n$ (default 10) documents with a score greater than 0, sorted by score.
 
 ### BM25
 To compute the BM25 weights I used the [`bm25-vectorizer`](https://pypi.org/project/bm25-vectorizer/) package with the `bm25plus` variant. Documents are transformed with a BM25Vectorizer into a matrix of weights computed for every word in every document according to the formula:
@@ -114,7 +117,7 @@ $b$ - the document length penalty parameter
 
 $\delta$ - the minimum reward for the presence of a word
 
-The query is transformed into a vector $q$ that counts the occurrences of each keyword. The score vector $s$ is then computed as the product of the query vector and the weight matrix $W$
+The query is transformed into a vector $q$ that counts the occurrences of each keyword, using a `CountVectorizer` with the same vocabulary as the BM25 matrix. The score vector $s$ is then computed as the product of the query vector and the weight matrix $W$
 ```math
 s = qW
 ```
@@ -123,7 +126,7 @@ The score for a given document $s_d$ is the product of the vector $q$ and the do
 ```math
 s_d = qw_d = \sum_{i=1}^{V} q_i W_{i,d}
 ```
-The result is the $top_n=10$ documents with the highest scores.
+The result is up to $top_n$ (default 10) documents with a score greater than 0, sorted by score.
 
 ---
 
@@ -152,7 +155,7 @@ uv run --package crawler crawl
 
 ### 2. Building the index
 
-The index is built automatically the first time the API starts. You can also build it manually beforehand:
+The index is built automatically the first time the API starts, if `engine/data/index/` does not exist. After re-crawling or changing the preprocessing, rebuild it manually, because the API will otherwise keep using the old index:
 
 ```bash
 uv run se-index
@@ -166,7 +169,15 @@ uv run fastapi dev src/search_engine/api/main.py
 
 The server will be available at `http://127.0.0.1:8000`.
 
+### Comparing models without the API
+
+```bash
+uv run python scripts/compare_models.py
+```
+
 ## Example queries
+
+`POST /search` takes a JSON body with `query` (string) and `top_n` (int, default 10).
 
 Simple query: `the plague`
 
@@ -193,7 +204,7 @@ Example response with $top_n = 1$
     {
       "rank": 1,
       "page_id": 63346478,
-      "title": "412BC epidemic",
+      "title": "412 BC epidemic",
       "url": "https://en.wikipedia.org/wiki/412_BC_epidemic",
       "score": 0.4553370204456878
     }
@@ -238,7 +249,7 @@ Example response with $top_n = 1$
     {
       "rank": 1,
       "page_id": 945818,
-      "title": "Listof epidemics and pandemics",
+      "title": "List of epidemics and pandemics",
       "url": "https://en.wikipedia.org/wiki/List_of_epidemics_and_pandemics",
       "score": 0.5399005996166855
     }
