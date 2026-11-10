@@ -5,13 +5,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from search_engine.indexer import index_exists, run_setup_pipeline
-from search_engine.model.bm25 import Bm25Index
-from search_engine.model.bow import BowIndex
-from search_engine.model.lsa import LsaIndex
+from search_engine.model.bm25 import Bm25Model
+from search_engine.model.bow import BowModel
+from search_engine.model.lsa import LsaModel
 
-bow = BowIndex()
-lsa = LsaIndex()
-bm25 = Bm25Index()
+bow = BowModel()
+lsa = LsaModel()
+bm25 = Bm25Model()
 
 
 class SearchRequest(BaseModel):

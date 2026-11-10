@@ -1,4 +1,5 @@
 import re
+from functools import lru_cache
 
 import nltk
 from nltk.corpus import stopwords
@@ -14,29 +15,21 @@ for pkg, path in [
         nltk.download(pkg, quiet=True)
 
 STOP_WORDS = set(stopwords.words("english"))
-stemmer = nltk.stem.PorterStemmer()
-
-
-def tokenize_text(text):
-    text = text.lower()
-    text = re.sub(r"[^a-z0-9\s]", "", text)
-    text = word_tokenize(text)
-    text = [word for word in text if word not in STOP_WORDS]
-    return text
-
-
-def stem_words(words):
-    return [stemmer.stem(word) for word in words]
+cached_stem = lru_cache(maxsize=2**18)(nltk.stem.PorterStemmer().stem)
 
 
 def preprocess(text: str) -> list[str]:
-    return stem_words(tokenize_text(text))
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9\s]", "", text)
+    words = word_tokenize(text)
+    words = [word for word in words if word not in STOP_WORDS]
+    return [cached_stem(word) for word in words]
+
 
 def main():
     text = "Hello, world! This is a test sentence running on a computer."
-    print(tokenize_text(text))
-    print(stem_words(tokenize_text(text)))
     print(preprocess(text))
+
 
 if __name__ == "__main__":
     main()
