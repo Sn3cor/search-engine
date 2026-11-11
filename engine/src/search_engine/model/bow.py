@@ -1,13 +1,11 @@
-from pathlib import Path
-
 import joblib
 import numpy as np
 import scipy.sparse as sp
 
-INDEX_PATH = Path(__file__).parent.parent.parent / "data" / "index"
+from search_engine.config import INDEX_PATH
 
 
-class BowIndex:
+class BowModel:
     def __init__(self):
         self._vectorizer = None
         self._matrix = None
@@ -20,11 +18,12 @@ class BowIndex:
 
     def search(self, query, top_n=10):
         query_vec = self._vectorizer.transform([query])
-        query_norm = np.sqrt(query_vec.multiply(query_vec).sum())
-        if query_norm == 0:
+        if query_vec.nnz == 0:
             return []
 
-        scores = (query_vec @ self._matrix).toarray().flatten() / query_norm
+
+        scores = (query_vec @ self._matrix).toarray().flatten()
+        top_n = min(top_n, scores.size)
 
         top_indices = np.argpartition(scores, -top_n)[-top_n:]
         top_indices = top_indices[np.argsort(scores[top_indices])[::-1]]
@@ -38,4 +37,5 @@ class BowIndex:
                 "score": float(scores[i]),
             }
             for rank, i in enumerate(top_indices)
+            if scores[i] > 0
         ]

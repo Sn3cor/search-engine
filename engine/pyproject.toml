@@ -12,13 +12,13 @@ dependencies = [
     "joblib>=1.6.0",
     "nltk>=3.10.3",
     "numpy>=2.5.4",
+    "pandas>=3.1.1",
     "scikit-learn>=1.9.1",
     "scipy>=1.18.1",
 ]
 
 [project.scripts]
 se-index = "search_engine.indexer:main"
-se-api = "search_engine.api.main:run"
 
 [build-system]
 requires = ["uv_build>=0.12.2,<0.13.0"]

@@ -69,11 +69,12 @@ class Crawler:
                     )
                     continue
 
-                print(f"Current category: {current_category}\n")
+                print(f"Current category: {current_category}")
+                print(f"Current depth: {depth}\n")
 
                 continue_token = {}
 
-                while True:
+                while len(self.seen_pages) < self.max_pages:
                     params = {
                         "action": "query",
                         "list": "categorymembers",
@@ -144,7 +145,7 @@ class Crawler:
             print(f"\nFinished crawling. Fetched {len(self.seen_pages)} pages.")
 
 def main():
-    Crawler("Category:History", max_pages=10, max_depth=5).crawl()
+    Crawler("Category:History", max_pages=100_000, max_depth=5).crawl()
 
 if __name__ == "__main__":
     main()

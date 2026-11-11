@@ -1,14 +1,11 @@
-from pathlib import Path
-
 import joblib
 import numpy as np
 import scipy.sparse as sp
-from sklearn.feature_extraction.text import CountVectorizer
 
-INDEX_PATH = Path(__file__).parent.parent.parent / "data" / "index"
+from search_engine.config import INDEX_PATH
 
 
-class Bm25Index:
+class Bm25Model:
     def __init__(self):
         self._vectorizer = None
         self._matrix = None
@@ -20,13 +17,13 @@ class Bm25Index:
         self._doc_meta = joblib.load(INDEX_PATH / "doc_meta.pkl")
 
     def search(self, query, top_n=10):
-        # Use bm_25 vecotirzer's vocalbulary in CountVectorizer.transform method
-        query_counts = CountVectorizer.transform(self._vectorizer, [query])
+        query_vec = self._vectorizer.transform([query])
 
-        if query_counts.nnz == 0:
+        if query_vec.nnz == 0:
             return []
 
-        scores = (query_counts @ self._matrix).toarray().flatten()
+        scores = (query_vec @ self._matrix).toarray().flatten()
+        top_n = min(top_n, scores.size)
 
         top_indices = np.argpartition(scores, -top_n)[-top_n:]
         top_indices = top_indices[np.argsort(scores[top_indices])[::-1]]
