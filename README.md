@@ -1,5 +1,9 @@
 # search-engine
 
+## Abstract
+
+A search engine for English Wikipedia articles from the History category. A BFS crawler collects the articles through the Wikipedia API. Their text is then preprocessed (lowercasing, stop-word removal, Porter stemming) and indexed with three classic retrieval models: Bag of Words with TF-IDF, LSA (Latent Semantic Analysis) and BM25+. A FastAPI REST API runs each query against all three models and returns their rankings side by side, so their results can be compared directly. A frontend client calls this API. The backend is built with pandas, scikit-learn and NLTK.
+
 
 ## Project structure
 
